@@ -28,12 +28,39 @@ def find_change_report():
     return max(files, key=os.path.getmtime)
 
 
+def prompt_antigravity_download():
+    """Generate Antigravity Agent prompt to download SNOMED CSV from NCTS website."""
+    print("\n" + "=" * 70)
+    print("SNOMED CSV NOT FOUND - ANTIGRAVITY DOWNLOAD REQUIRED")
+    print("=" * 70)
+    print("\nThe SNOMEDCT-AU-concept-changes-*.csv file was not found in WorkingFiles/")
+    print("\nIf you have Antigravity Agent available, use this prompt:\n")
+    print("-" * 70)
+    print("""
+TASK: Download SNOMED CT-AU Change Report CSV
+
+1. Navigate to: https://www.healthterminologies.gov.au/access-clinical-terminology/access-snomed-ct-au/other/
+
+2. Locate and click the "Download as CSV" button with this selector:
+   <button type="button" class="v-btn theme--dark" style="background-color: rgb(19, 94, 112); border-color: rgb(19, 94, 112);"><div class="v-btn__content">Download as CSV</div></button>
+
+3. Save the downloaded file to your local WorkingFiles/ directory with the naming pattern:
+   SNOMEDCT-AU-concept-changes-YYYYMMDD-YYYYMMDD.csv
+
+Once downloaded, run this script again:
+   python3 filter_medicinal_products.py
+""")
+    print("-" * 70)
+    print("\nAlternatively, manually download the file from the NCTS website and save it to WorkingFiles/")
+    print("=" * 70 + "\n")
+    sys.exit(1)
+
+
 def main():
     input_path = find_change_report()
 
     if not input_path:
-        print(f"Error: No SNOMEDCT-AU-concept-changes-*.csv found in {WORKING_DIR}")
-        sys.exit(1)
+        prompt_antigravity_download()
 
     # Derive output filename from input
     input_basename = os.path.basename(input_path)

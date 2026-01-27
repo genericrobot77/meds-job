@@ -82,13 +82,13 @@ def process_ncts_zip(zip_path):
 
 
 def process_shortages():
-    """Rename Medicine Shortages file to standard name."""
+    """Rename Medicine Shortages file and move to Files for upload."""
     candidates = (
         glob.glob(os.path.join(WORKING_DIR, "*Shortages*.csv")) +
         glob.glob(os.path.join(WORKING_DIR, "*Shortages*.xls*"))
     )
     target_name = "MedicineShortagesActiveResultSummaryExport.csv"
-    target_path = os.path.join(WORKING_DIR, target_name)
+    target_path = os.path.join(UPLOAD_DIR, target_name)
 
     # Filter out target if already exists
     candidates = [c for c in candidates if os.path.basename(c) != target_name]
@@ -96,7 +96,7 @@ def process_shortages():
     if candidates:
         src = candidates[0]
         shutil.move(src, target_path)
-        print(f"Renamed shortages file: {src} -> {target_path}")
+        print(f"Renamed & moved shortages file: {src} -> {target_path}")
     elif os.path.exists(target_path):
         print(f"Shortages file already exists as {target_name}")
     else:

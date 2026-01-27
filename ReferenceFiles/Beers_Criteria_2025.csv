@@ -1,0 +1,140 @@
+s,prefLabel,Beers,ATCcode
+http://thesaurus.healthdirect.org.au/aht/20158,alprazolam,TRUE,N05BA12
+http://thesaurus.healthdirect.org.au/aht/20156,amiloride,TRUE,C03DB01
+http://thesaurus.healthdirect.org.au/aht/23161,amiloride + hydrochlorothiazide,TRUE,C03AX01
+http://thesaurus.healthdirect.org.au/aht/20161,amiodarone,TRUE,C01BD01
+http://thesaurus.healthdirect.org.au/aht/20163,amitriptyline,TRUE,N06AA09
+http://thesaurus.healthdirect.org.au/aht/23840,ammonium chloride + citric acid + diphenhydramine + menthol,TRUE,
+http://thesaurus.healthdirect.org.au/aht/24053,amobarbital (amylobarbitone),TRUE,N05CA02
+http://thesaurus.healthdirect.org.au/aht/20246,asenapine,TRUE,N05AH05
+http://thesaurus.healthdirect.org.au/aht/10203,aspirin,TRUE,"B01AC06,N02BA"
+http://thesaurus.healthdirect.org.au/aht/23842,atropa belladonna + chlorphenamine + codeine + paracetamol + pseudoephedrine,TRUE,A03D
+http://thesaurus.healthdirect.org.au/aht/24475,atropine sulfate + hyoscine hydrobromide + hyoscyamine,TRUE,A03DB
+http://thesaurus.healthdirect.org.au/aht/20321,benzatropine,TRUE,N04AC01
+http://thesaurus.healthdirect.org.au/aht/23204,brompheniramine + phenylephrine,TRUE,R06AB51
+http://thesaurus.healthdirect.org.au/aht/23486,brompheniramine + phenylephrine + dextromethorphan,TRUE,R06AB
+http://thesaurus.healthdirect.org.au/aht/26829,cariprazine,TRUE,N05AX15
+http://thesaurus.healthdirect.org.au/aht/20499,chlorpromazine,TRUE,N05AA01
+http://thesaurus.healthdirect.org.au/aht/20514,cilostazol,TRUE,B01AC23
+http://thesaurus.healthdirect.org.au/aht/20672,clomipramine,TRUE,N06AA04
+http://thesaurus.healthdirect.org.au/aht/20674,clonazepam,TRUE,N03AE01
+http://thesaurus.healthdirect.org.au/aht/20675,clonidine,TRUE,"S01EA04,N02CX02,C02AC01"
+http://thesaurus.healthdirect.org.au/aht/20581,codeine,TRUE,"N02AA,R05DA"
+http://thesaurus.healthdirect.org.au/aht/22737,conjugated estrogens,TRUE,G03CA57
+http://thesaurus.healthdirect.org.au/aht/24080,conjugated estrogens + bazedoxifene,TRUE,G03CC07
+http://thesaurus.healthdirect.org.au/aht/23387,conjugated estrogens + medroxyprogesterone,TRUE,"G03FA12,G03FB06"
+http://thesaurus.healthdirect.org.au/aht/22254,cyproheptadine,TRUE,R06AX02
+http://thesaurus.healthdirect.org.au/aht/20385,desmopressin,TRUE,H01BA02
+http://thesaurus.healthdirect.org.au/aht/22376,dexchlorpheniramine,TRUE,R06AB02
+http://thesaurus.healthdirect.org.au/aht/23259,dexchlorpheniramine + pseudoephedrine,TRUE,R06AB52
+http://thesaurus.healthdirect.org.au/aht/23261,dextromethorphan + diphenhydramine,TRUE,N07XX59
+http://thesaurus.healthdirect.org.au/aht/20758,dextropropoxyphene,TRUE,N02AC04
+http://thesaurus.healthdirect.org.au/aht/23266,dextropropoxyphene + paracetamol,TRUE,N02AC54
+http://thesaurus.healthdirect.org.au/aht/20759,diazepam,TRUE,N05BA01
+http://thesaurus.healthdirect.org.au/aht/20761,diclofenac,TRUE,"M02AA15,M01AB05,S01BC03,D11AX18"
+http://thesaurus.healthdirect.org.au/aht/23268,diclofenac + misoprostol,TRUE,M01AB55
+http://thesaurus.healthdirect.org.au/aht/23269,dienogest + ethinylestradiol,TRUE,G03AA16
+http://thesaurus.healthdirect.org.au/aht/20767,digoxin,TRUE,C01AA05
+http://thesaurus.healthdirect.org.au/aht/21530,dimenhydrinate,TRUE,A04AD
+http://thesaurus.healthdirect.org.au/aht/24284,dimenhydrinate + hyoscine hydrobromide + caffeine,TRUE,A04AD
+http://thesaurus.healthdirect.org.au/aht/22404,diphenhydramine,TRUE,"R06AA02,D04AA32"
+http://thesaurus.healthdirect.org.au/aht/23699,diphenhydramine + ammonium chloride,TRUE,R06AA52
+http://thesaurus.healthdirect.org.au/aht/23468,diphenhydramine + ammonium chloride + citric acid,TRUE,R06AA52
+http://thesaurus.healthdirect.org.au/aht/23273,diphenhydramine + phenylephrine,TRUE,R06AA52
+http://thesaurus.healthdirect.org.au/aht/20776,dipyridamole,TRUE,B01AC07
+http://thesaurus.healthdirect.org.au/aht/23276,dipyridamole + aspirin,TRUE,"B01AC,C01DA51"
+http://thesaurus.healthdirect.org.au/aht/20837,disopyramide,TRUE,C01BA03
+http://thesaurus.healthdirect.org.au/aht/24092,doxazosin,TRUE,C02CA04
+http://thesaurus.healthdirect.org.au/aht/20855,doxepin,TRUE,"N06AA12,D04AX01"
+http://thesaurus.healthdirect.org.au/aht/22422,doxylamine,TRUE,R06AA09
+http://thesaurus.healthdirect.org.au/aht/20862,dronedarone,TRUE,C01BD07
+http://thesaurus.healthdirect.org.au/aht/20863,droperidol,TRUE,"N01AX01,N05AD08"
+http://thesaurus.healthdirect.org.au/aht/22434,enoxaparin sodium,TRUE,B01AB05
+http://thesaurus.healthdirect.org.au/aht/21052,esomeprazole,TRUE,A02BC05
+http://thesaurus.healthdirect.org.au/aht/27106,estetrol + drospirenone,TRUE,
+http://thesaurus.healthdirect.org.au/aht/21032,estradiol,TRUE,G03CA03
+http://thesaurus.healthdirect.org.au/aht/23270,estradiol + dienogest,TRUE,G03AB08
+http://thesaurus.healthdirect.org.au/aht/23385,estradiol + drospirenone,TRUE,G03FA17
+http://thesaurus.healthdirect.org.au/aht/23386,estradiol + dydrogesterone,TRUE,"G03FA14,G03FB08"
+http://thesaurus.healthdirect.org.au/aht/23382,estradiol + norethisterone acetate,TRUE,G03CA53
+http://thesaurus.healthdirect.org.au/aht/21031,estriol,TRUE,"G03CC06,G03CA04"
+http://thesaurus.healthdirect.org.au/aht/24213,ethinylestradiol,TRUE,"G03CA01,L02AA03"
+http://thesaurus.healthdirect.org.au/aht/21114,famotidine,TRUE,A02BA03
+http://thesaurus.healthdirect.org.au/aht/21121,fentanyl,TRUE,"N01AH01,N02AB03"
+http://thesaurus.healthdirect.org.au/aht/22474,flupentixol decanoate,TRUE,N05AF01
+http://thesaurus.healthdirect.org.au/aht/22475,fluphenazine decanoate,TRUE,N05AB02
+http://thesaurus.healthdirect.org.au/aht/21341,fondaparinux,TRUE,B01AX05
+http://thesaurus.healthdirect.org.au/aht/21309,glibenclamide,TRUE,A10BB01
+http://thesaurus.healthdirect.org.au/aht/21307,glimepiride,TRUE,A10BB12
+http://thesaurus.healthdirect.org.au/aht/26585,glycopyrronium bromide (glycopyrrolate) + neostigmine,TRUE,N07AA51
+http://thesaurus.healthdirect.org.au/aht/23262,guaifenesin + dextromethorphan,TRUE,N07XX59
+http://thesaurus.healthdirect.org.au/aht/24171,guanfacine,TRUE,C02AC02
+http://thesaurus.healthdirect.org.au/aht/21298,haloperidol,TRUE,N05AD01
+http://thesaurus.healthdirect.org.au/aht/22514,haloperidol decanoate,TRUE,N05AD01
+http://thesaurus.healthdirect.org.au/aht/23329,hydrochlorothiazide + triamterene,TRUE,C03AX01
+http://thesaurus.healthdirect.org.au/aht/21292,hydromorphone,TRUE,N02AA03
+http://thesaurus.healthdirect.org.au/aht/22545,hyoscine butylbromide,TRUE,A03BB01
+http://thesaurus.healthdirect.org.au/aht/22546,hyoscine hydrobromide,TRUE,A04AD01
+http://thesaurus.healthdirect.org.au/aht/21286,ibuprofen,TRUE,"G02CC01,C01EB16,R02AX02,M02AA13,M01AE01"
+http://thesaurus.healthdirect.org.au/aht/23251,ibuprofen + codeine,TRUE,N02AJ08
+http://thesaurus.healthdirect.org.au/aht/23334,ibuprofen + pseudoephedrine,TRUE,R01BA52
+http://thesaurus.healthdirect.org.au/aht/21270,imipramine,TRUE,N06AA02
+http://thesaurus.healthdirect.org.au/aht/21263,indometacin,TRUE,"C01EB03,S01BC01,M01AB01,M02AA23"
+http://thesaurus.healthdirect.org.au/aht/21233,ketoprofen,TRUE,"M01AE03,M02AA10"
+http://thesaurus.healthdirect.org.au/aht/21232,ketorolac,TRUE,"M01AB15,S01BC05,M01AX03"
+http://thesaurus.healthdirect.org.au/aht/21227,lansoprazole,TRUE,A02BC03
+http://thesaurus.healthdirect.org.au/aht/21216,levetiracetam,TRUE,N03AX14
+http://thesaurus.healthdirect.org.au/aht/26578,linaclotide,TRUE,A06AX04
+http://thesaurus.healthdirect.org.au/aht/21199,lorazepam,TRUE,N05BA06
+http://thesaurus.healthdirect.org.au/aht/21196,lurasidone,TRUE,N05AE05
+http://thesaurus.healthdirect.org.au/aht/26766,mecasermin,TRUE,H01AC03
+http://thesaurus.healthdirect.org.au/aht/21187,mefenamic acid,TRUE,M01AG01
+http://thesaurus.healthdirect.org.au/aht/22657,megestrol,TRUE,"G03AC05,G03DB02,L02AB01"
+http://thesaurus.healthdirect.org.au/aht/21182,meloxicam,TRUE,M01AC06
+http://thesaurus.healthdirect.org.au/aht/24095,mepyramine,TRUE,"D04AA02,R06AC01"
+http://thesaurus.healthdirect.org.au/aht/23374,metformin + glibenclamide,TRUE,A10BA
+http://thesaurus.healthdirect.org.au/aht/21167,methyldopa,TRUE,C02AB
+http://thesaurus.healthdirect.org.au/aht/20949,metoclopramide,TRUE,A03FA01
+http://thesaurus.healthdirect.org.au/aht/23375,metoclopramide + paracetamol,TRUE,N02CX
+http://thesaurus.healthdirect.org.au/aht/21089,naproxen,TRUE,"M02AA12,M01AE02,G02CC02"
+http://thesaurus.healthdirect.org.au/aht/23286,naproxen + esomeprazole,TRUE,M01AE52
+http://thesaurus.healthdirect.org.au/aht/21073,nifedipine,TRUE,"C08CA05,C02DE02"
+http://thesaurus.healthdirect.org.au/aht/21064,nitrofurantoin,TRUE,"J01XE01,G04AC01"
+http://thesaurus.healthdirect.org.au/aht/21050,nortriptyline,TRUE,N06AA10
+http://thesaurus.healthdirect.org.au/aht/21011,omeprazole,TRUE,A02BC01
+http://thesaurus.healthdirect.org.au/aht/21006,orphenadrine,TRUE,M03BC01
+http://thesaurus.healthdirect.org.au/aht/23391,orphenadrine citrate + paracetamol,TRUE,M03BC51
+http://thesaurus.healthdirect.org.au/aht/20990,oxazepam,TRUE,N05BA04
+http://thesaurus.healthdirect.org.au/aht/20951,pantoprazole,TRUE,A02BC02
+http://thesaurus.healthdirect.org.au/aht/20944,paroxetine,TRUE,N06AB05
+http://thesaurus.healthdirect.org.au/aht/20923,pethidine,TRUE,N02AB02
+http://thesaurus.healthdirect.org.au/aht/20920,phenobarbital (phenobarbitone),TRUE,N03AA02
+http://thesaurus.healthdirect.org.au/aht/20905,piroxicam,TRUE,"M02AA07,S01BC06,M01AC01"
+http://thesaurus.healthdirect.org.au/aht/20890,prazosin,TRUE,C02CA01
+http://thesaurus.healthdirect.org.au/aht/20812,prochlorperazine,TRUE,N05AB04
+http://thesaurus.healthdirect.org.au/aht/20808,promethazine,TRUE,"R06AD02,D04AA10"
+http://thesaurus.healthdirect.org.au/aht/20805,propantheline,TRUE,A03AB05
+http://thesaurus.healthdirect.org.au/aht/20384,quetiapine,TRUE,N05AH04
+http://thesaurus.healthdirect.org.au/aht/20038,rabeprazole,TRUE,A02BC04
+http://thesaurus.healthdirect.org.au/aht/20009,risperidone,TRUE,N05AX08
+http://thesaurus.healthdirect.org.au/aht/20701,sertindole,TRUE,N05AE03
+http://thesaurus.healthdirect.org.au/aht/20652,somatropin,TRUE,H01AC01
+http://thesaurus.healthdirect.org.au/aht/20635,sulindac,TRUE,M01AB02
+http://thesaurus.healthdirect.org.au/aht/20608,temazepam,TRUE,N05CD07
+http://thesaurus.healthdirect.org.au/aht/20599,terazosin,TRUE,"G04CA03,C02CA05"
+http://thesaurus.healthdirect.org.au/aht/21369,testosterone,TRUE,G03BA03
+http://thesaurus.healthdirect.org.au/aht/20558,testosterone enantate,TRUE,G03BA03
+http://thesaurus.healthdirect.org.au/aht/23569,testosterone propionate + testosterone phenylpropionate + testosterone isocaproate,TRUE,G03BA03
+http://thesaurus.healthdirect.org.au/aht/23847,testosterone propionate + testosterone phenylpropionate + testosterone isocaproate + testosterone decanoate,TRUE,G03BA03
+http://thesaurus.healthdirect.org.au/aht/23000,testosterone undecanoate,TRUE,G03BA03
+http://thesaurus.healthdirect.org.au/aht/23011,thioridazine,TRUE,N05AC02
+http://thesaurus.healthdirect.org.au/aht/20435,tibolone,TRUE,"G03DC05,G03CX01"
+http://thesaurus.healthdirect.org.au/aht/20302,triazolam,TRUE,N05CD05
+http://thesaurus.healthdirect.org.au/aht/20303,trifluoperazine,TRUE,N05AB06
+http://thesaurus.healthdirect.org.au/aht/22083,trihexyphenidyl (benzhexol),TRUE,N04AA01
+http://thesaurus.healthdirect.org.au/aht/20431,trimipramine,TRUE,N06AA06
+http://thesaurus.healthdirect.org.au/aht/20189,warfarin,TRUE,B01AA03
+http://thesaurus.healthdirect.org.au/aht/24226,zaleplon,TRUE,N05CF03
+http://thesaurus.healthdirect.org.au/aht/20182,ziprasidone,TRUE,N05AE04
+http://thesaurus.healthdirect.org.au/aht/20179,zolpidem,TRUE,"N05CG01,N05CF02,N05CM14"
+http://thesaurus.healthdirect.org.au/aht/20176,zopiclone,TRUE,N05CF01

@@ -77,8 +77,9 @@ Using PoolParty (Authoring environment):
 
 ## Directory Structure
 
-- `WorkingFiles/` - Input directory for all source files (gitignored)
-- `Files for upload/` - Output directory for processed files (gitignored)
+- `WorkingFiles/` - **Monthly input** directory for downloaded NCTS zips and change reports (cleared each month, gitignored)
+- `Files for upload/` - **Monthly output** directory for processed RF2 files (cleared each month, gitignored)
+- `ReferenceFiles/` - **Permanent reference** directory for external reference documents like pregnancy category lists, drug reference databases, etc. (tracked in git, kept permanently)
 
 ## Data Formats
 

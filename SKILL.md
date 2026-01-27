@@ -10,10 +10,14 @@ This skill automates the extraction and organization of NCTS (National Clinical 
 ## Prerequisites
 
 1.  **Python 3**: Ensure Python 3 is installed.
-2.  **Input Files** (place in `WorkingFiles` directory):
+2.  **Monthly Input Files** (place in `WorkingFiles` directory - delete after processing):
     *   **NCTS Distribution Zip** (e.g., `NCTS_SCT_RF2_DISTRIBUTION_*.zip`)
     *   **Medicine Shortages** file (e.g., `*Shortages*.csv`)
     *   **SNOMED CT-AU Change Report** (e.g., `SNOMEDCT-AU-concept-changes-*.csv`)
+3.  **Optional Reference Files** (place in `ReferenceFiles` directory - permanent):
+    *   Pregnancy category reference spreadsheets
+    *   Drug reference databases
+    *   Other permanent reference materials
 
 ## Automated Workflow
 
@@ -59,41 +63,81 @@ python3 filter_medicinal_products.py
 
 ### Step 3: Research International Codes
 
-For each new Medicinal Product identified, research the following codes:
+Run the research script to choose your research method:
 
-**DrugBank ID**
-- Visit: https://go.drugbank.com/
-- Search for the MP
-- Note: Only single substance MPs are available on DrugBank
-- Avoid acetate/phosphate variations
-- **If in doubt, leave it out**
+```bash
+python3 research_medicinal_products.py
+```
 
-**ATC Code**
-- Visit: https://www.whocc.no/atc_ddd_index/
-- Search for the MP
-- Note: MP may be listed under slightly different name
-- There can be several ATC codes for the same MP
-- Very new drugs may not have been assigned an ATC code yet
+**Research Mode Comparison:**
 
-**Pregnancy Category**
-- Check DrugBank or TGA databases
-- Note if Australian TGA or FDA classification
-- Note if no data available
+| Mode | Command | Use For | Success Rate | Cost |
+|------|---------|---------|--------------|------|
+| **Interactive + Direct Sites** | `--interactive` | Most codes (DrugBank, Pregnancy) | ⭐⭐⭐ Good | None |
+| **Web Search for ATC** | `--search-atc "Drug"` | Missing ATC codes | ⭐⭐⭐ Good | Tokens |
+| **Antigravity Agent** | `--antigravity` | Full automation | ⭐⭐⭐ Best | Quota-based |
+| **Claude WebFetch** | `--claude` | Fallback | ⭐⭐ Limited | Tokens |
 
-**Beers Criteria**
-- Check if listed in American Geriatrics Society Beers Criteria
-- Most new drugs will not be listed
+**Recommended Workflow:**
 
-**Reference Document**
-Create a reference document (use template below) with:
-- Summary table of all codes
-- Detailed section for each MP with:
-  - SNOMED codes and URIs
-  - DrugBank ID (if applicable)
-  - ATC code and classification
-  - Pregnancy category
-  - Beers Criteria status
-  - Clinical notes
+1. **Start with Interactive Mode:**
+   ```bash
+   python3 research_medicinal_products.py --interactive
+   ```
+   → Guided step-by-step entry with direct website links
+   → Try https://atcddd.fhi.no/atc_ddd_index/ first for ATC codes
+   → Saves progress after each product
+
+2. **If ATC Code Not Found on Direct Site:**
+   ```bash
+   python3 research_medicinal_products.py --search-atc "Drug Name"
+   ```
+   → Claude searches web for the missing ATC code
+   → Copy results back into `research_data.json`
+
+3. **When Antigravity Quota Available:**
+   ```bash
+   python3 research_medicinal_products.py --antigravity
+   ```
+   → Use for comprehensive browser automation
+   → Copy prompt to Antigravity Agent
+   → Paste results into `research_data.json`
+
+4. **Generate Reference Document:**
+   ```bash
+   python3 research_medicinal_products.py --generate
+   ```
+   → Creates `MedicinalProducts-Research-YYYYMMDD-YYYYMMDD.csv`
+   → Ready for AHT updates in PoolParty
+
+**Why Interactive Mode is Good:**
+- Direct access to websites while entering data
+- Can click links provided by script
+- Self-paced - skip products and come back
+- No token cost
+- Validation tips built into prompts
+
+**Interactive Mode Features:**
+- Detailed prompts for each field with examples
+- Direct links to all research websites
+- Progress tracking (e.g., "[2/4]")
+- Skip ('s') or quit ('q') options
+- Clear formatting and guidance
+
+**Research Data Collected:**
+
+| Field | Source | Required? |
+|-------|--------|-----------|
+| DrugBank ID | https://go.drugbank.com/ | Single-substance drugs only |
+| ATC Code(s) | https://atcddd.fhi.no/atc_ddd_index/ | When available |
+| Pregnancy Category (AU) | https://www.tga.gov.au/prescribing-medicines-pregnancy-database | Optional |
+| Pregnancy Category (FDA) | FDA labeling | Optional |
+| Beers Criteria | AGS Beers Criteria | Optional (usually "Not listed") |
+| Clinical Notes | Any reliable source | Recommended |
+
+**Output Files:**
+- `WorkingFiles/research_data.json` - Structured research data
+- `WorkingFiles/MedicinalProducts-Research-YYYYMMDD-YYYYMMDD.csv` - Reference document for AHT
 
 ## Manual Workflow: SNOMED CT-AU & AHT Update
 
@@ -167,12 +211,48 @@ Create a reference document (use template below) with:
     - Run `process_ncts_data.py` for NCTS and Shortages files
     - Run `filter_medicinal_products.py` for SNOMED change report
 
-3.  **Research** (Semi-automated):
-    - Use filtered list to research DrugBank, ATC codes, Pregnancy Category, Beers Criteria
-    - Create reference document with findings
+3.  **Research** (Automated):
+    - Run `python3 research_medicinal_products.py` to initialize research
+    - **Beers Criteria** - Automatically checked against `ReferenceFiles/Beers_Criteria_2025.csv`
+      - If drug name matches prefLabel in reference file → flagged as "Listed"
+      - If not found → "Not listed" (correct for new drugs)
+    - Run with research mode:
+      - `--claude` - Web search for DrugBank, ATC codes, Pregnancy Category
+      - `--antigravity` - Full browser automation for all codes
+      - `--interactive` - Manual entry with guided prompts
+    - Reference document auto-generated in WorkingFiles/
 
 4.  **Update AHT** (Manual):
     - Import concepts into PoolParty
     - Add all required and optional attributes
     - Handle retired/inactive concepts
     - Proofread and save
+
+## Folder Structure
+
+### WorkingFiles/ (Monthly - Cleared After Processing)
+- **Purpose**: Temporary input directory for monthly downloads
+- **Contains**:
+  - NCTS_SCT_RF2_DISTRIBUTION_*.zip
+  - SNOMEDCT-AU-concept-changes-*.csv
+  - Medicine Shortages CSV/Excel
+- **Action**: Delete all contents after each month's processing
+
+### Files for upload/ (Monthly - Cleared After Processing)
+- **Purpose**: Temporary output directory for processed files
+- **Contains**:
+  - Relationship_Snapshot files (Terminology/)
+  - SimpleMapSnapshot files (Map/)
+  - Renamed shortages files
+- **Action**: Upload to SharePoint, then delete contents after each month
+
+### ReferenceFiles/ (Permanent - Tracked in Git)
+- **Purpose**: Store permanent reference files and databases
+- **Keep files here**:
+  - Beers Criteria Excel spreadsheet
+  - Pregnancy category lookup files
+  - Drug reference databases
+  - Historical AHT research documents
+  - Any other reference materials needed across multiple months
+- **Action**: Keep files permanently, commit changes to git
+- **Note**: Files added here will be version-controlled and preserved
