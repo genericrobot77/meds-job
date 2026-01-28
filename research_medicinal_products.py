@@ -5,7 +5,7 @@ Research International Codes for New Medicinal Products
 This script reads the filtered medicinal products CSV and helps automate
 research for DrugBank IDs, ATC codes, Pregnancy Category, and Beers Criteria.
 
-Run from project root. Reads from WorkingFiles/ directory.
+Run from project root. Reads from WorkingFiles/, outputs to outputs/ directory.
 
 Usage:
     python3 research_medicinal_products.py                    # Show summary and generate template
@@ -33,15 +33,19 @@ import re
 # Configuration - relative to script location (project root)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKING_DIR = os.path.join(SCRIPT_DIR, "WorkingFiles")
+OUTPUTS_DIR = os.path.join(SCRIPT_DIR, "outputs")
 REFERENCE_DIR = os.path.join(SCRIPT_DIR, "ReferenceFiles")
 
-# Research data file (stores completed research)
+# Ensure outputs directory exists
+os.makedirs(OUTPUTS_DIR, exist_ok=True)
+
+# Research data file (stores completed research - intermediate working file)
 RESEARCH_DATA_FILE = os.path.join(WORKING_DIR, "research_data.json")
 
 # Reference files
 BEERS_CRITERIA_FILE = os.path.join(REFERENCE_DIR, "Beers_Criteria_2025.csv")
 
-# Reference document outputs
+# Output report patterns
 JSON_REPORT_PATTERN = "MP-Research-{date_range}.json"
 CSV_REFERENCE_PATTERN = "MP-Ref-{date_range}.csv"
 
@@ -131,8 +135,8 @@ def check_beers_criteria(drug_name, beers_data):
 
 
 def find_medicinal_products_csv():
-    """Find the filtered medicinal products CSV in WorkingFiles."""
-    pattern = os.path.join(WORKING_DIR, "SNOMEDCT-AU-MedicinalProducts-*.csv")
+    """Find the filtered medicinal products CSV in outputs folder."""
+    pattern = os.path.join(OUTPUTS_DIR, "SNOMEDCT-AU-MedicinalProducts-*.csv")
     files = glob.glob(pattern)
     if not files:
         return None
@@ -860,7 +864,7 @@ def main():
     csv_path = find_medicinal_products_csv()
 
     if not csv_path:
-        print(f"Error: No SNOMEDCT-AU-MedicinalProducts-*.csv found in {WORKING_DIR}")
+        print(f"Error: No SNOMEDCT-AU-MedicinalProducts-*.csv found in {OUTPUTS_DIR}")
         print("Run filter_medicinal_products.py first to generate the filtered CSV.")
         sys.exit(1)
 
@@ -943,7 +947,7 @@ def main():
     snomed_report = f"SNOMEDCT-AU-concept-changes-{date_range}.csv"
     json_report = generate_json_report(products, research_data, snomed_report, date_range)
     json_basename = JSON_REPORT_PATTERN.format(date_range=date_range)
-    json_path = os.path.join(WORKING_DIR, json_basename)
+    json_path = os.path.join(OUTPUTS_DIR, json_basename)
 
     with open(json_path, 'w', encoding='utf-8') as f:
         json.dump(json_report, f, indent=2, ensure_ascii=False)
@@ -951,7 +955,7 @@ def main():
 
     # Generate CSV reference document
     csv_basename = CSV_REFERENCE_PATTERN.format(date_range=date_range)
-    csv_path_output = os.path.join(WORKING_DIR, csv_basename)
+    csv_path_output = os.path.join(OUTPUTS_DIR, csv_basename)
     generate_reference_document(products, research_data, csv_path_output)
 
     print("\n" + "=" * 70)

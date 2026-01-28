@@ -3,7 +3,7 @@
 Filter SNOMED CT-AU change report for Medicinal Products only
 and generate SNOMED URIs.
 
-Run from project root. Reads/writes to WorkingFiles/ directory.
+Run from project root. Reads from WorkingFiles/, outputs to outputs/ directory.
 """
 
 import csv
@@ -14,6 +14,10 @@ import sys
 # Configuration - relative to script location (project root)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKING_DIR = os.path.join(SCRIPT_DIR, "WorkingFiles")
+OUTPUTS_DIR = os.path.join(SCRIPT_DIR, "outputs")
+
+# Ensure outputs directory exists
+os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
 TARGET_SEMANTIC_TAG = "medicinal product"
 SNOMED_BASE_URL = "http://snomed.info/id/"
@@ -65,7 +69,7 @@ def main():
     # Derive output filename from input
     input_basename = os.path.basename(input_path)
     output_basename = input_basename.replace("concept-changes", "MedicinalProducts")
-    output_path = os.path.join(WORKING_DIR, output_basename)
+    output_path = os.path.join(OUTPUTS_DIR, output_basename)
 
     print(f"Reading from: {input_path}")
 
