@@ -41,8 +41,59 @@ RESEARCH_DATA_FILE = os.path.join(WORKING_DIR, "research_data.json")
 # Reference files
 BEERS_CRITERIA_FILE = os.path.join(REFERENCE_DIR, "Beers_Criteria_2025.csv")
 
-# Reference document output
-REFERENCE_DOC_PATTERN = "MedicinalProducts-Research-{date_range}.csv"
+# Reference document outputs
+JSON_REPORT_PATTERN = "MP-Research-{date_range}.json"
+CSV_REFERENCE_PATTERN = "MP-Ref-{date_range}.csv"
+
+
+def detect_product_type(preferred_term):
+    """Detect product type based on name patterns."""
+    term_lower = preferred_term.lower()
+
+    # Single substance pharmaceutical
+    if ' + ' not in term_lower:
+        return "single_substance_pharmaceutical"
+
+    # Multi-ingredient combinations
+    if 'extract' in term_lower and 'vitamin' not in term_lower and 'mineral' not in term_lower:
+        if 'herbal' in term_lower or any(herb in term_lower for herb in ['feverfew', 'ginseng', 'valerian', 'st john', 'willow', 'bark']):
+            return "multi_ingredient_herbal_supplement"
+        return "multi_ingredient_botanical_supplement"
+
+    if 'vitamin' in term_lower or 'mineral' in term_lower:
+        if 'extract' in term_lower:
+            return "multi_ingredient_multivitamin_herbal_supplement"
+        return "multi_ingredient_multivitamin_supplement"
+
+    return "multi_ingredient_combination"
+
+
+def calculate_data_completeness(research):
+    """Calculate data completeness percentage based on research fields."""
+    required_fields = [
+        'drugbank_id',
+        'atc_codes',
+        'pregnancy_category_au',
+        'beers_criteria',
+        'clinical_notes'
+    ]
+
+    completed = 0
+    for field in required_fields:
+        value = research.get(field)
+        if value and (isinstance(value, str) and value.strip() or isinstance(value, list) and value):
+            completed += 1
+
+    percentage = (completed / len(required_fields)) * 100
+
+    if percentage == 100:
+        return "high"
+    elif percentage >= 60:
+        return "medium"
+    elif percentage >= 20:
+        return "low"
+    else:
+        return "very_low"
 
 
 def load_beers_criteria():
@@ -152,6 +203,111 @@ def create_research_template(products, beers_data=None):
             }
 
     return research_data
+
+
+def generate_json_report(products, research_data, snomed_change_report, date_range):
+    """Generate comprehensive JSON report with research findings."""
+    # Extract date range components
+    date_parts = date_range.split('-')
+    start_date = f"{date_parts[0][:4]}-{date_parts[0][4:6]}-{date_parts[0][6:8]}" if len(date_parts[0]) >= 8 else date_parts[0]
+    end_date = f"{date_parts[1][:4]}-{date_parts[1][4:6]}-{date_parts[1][6:8]}" if len(date_parts) > 1 and len(date_parts[1]) >= 8 else (date_parts[1] if len(date_parts) > 1 else "")
+
+    medicinal_products = []
+    products_with_strong = 0
+    products_with_limited = 0
+    products_requiring_review = 0
+
+    for product in products:
+        concept_id = product['concept_ID']
+        preferred_term = product['preferred_term']
+        status = product['status']
+
+        # Only include products in report
+        if status.lower() != 'new':
+            continue
+
+        research = research_data.get(concept_id, {}).get('research', {})
+
+        # Determine product type
+        product_type = detect_product_type(preferred_term)
+
+        # Calculate data completeness
+        completeness = calculate_data_completeness(research)
+
+        # Build research sources list
+        research_sources = []
+        if research.get('drugbank_id'):
+            research_sources.append("DrugBank Online")
+        if research.get('atc_codes'):
+            research_sources.append("WHO ATC Index")
+        if research.get('pregnancy_category_au') or research.get('pregnancy_category_fda'):
+            research_sources.append("TGA/FDA Databases")
+        if research.get('clinical_notes'):
+            research_sources.append("Medical Literature")
+
+        # Track data quality
+        if completeness == "high":
+            products_with_strong += 1
+        elif completeness in ["medium", "low"]:
+            products_with_limited += 1
+        products_requiring_review += 1
+
+        # Build product entry
+        product_entry = {
+            "snomed_code": concept_id,
+            "snomed_uri": product.get('SNOMED_uri', f"http://snomed.info/id/{concept_id}"),
+            "preferred_label": preferred_term,
+            "status": status,
+            "product_type": product_type,
+            "research": {
+                "drugbank_id": research.get('drugbank_id') or None,
+                "brand_names": [],
+                "atc_code": research.get('atc_codes')[0] if isinstance(research.get('atc_codes'), list) and research.get('atc_codes') else (research.get('atc_codes') or None),
+                "atc_description": research.get('atc_classification') or None,
+                "indication": "",
+                "pregnancy_category": {
+                    "category": research.get('pregnancy_category_au') or "Not assigned",
+                    "fda_category": research.get('pregnancy_category_fda') or "Not available",
+                    "description": "",
+                    "recommendation": ""
+                },
+                "beers_criteria": {
+                    "listed": research.get('beers_criteria', '').lower() == 'listed',
+                    "reason": ""
+                },
+                "additional_notes": research.get('clinical_notes') or ""
+            },
+            "data_completeness": completeness,
+            "research_sources": research_sources if research_sources else ["Pending research"]
+        }
+
+        medicinal_products.append(product_entry)
+
+    # Generate key findings
+    key_findings = []
+    if products_with_strong > 0:
+        key_findings.append(f"{products_with_strong} product(s) with high-quality pharmaceutical data")
+    if products_with_limited > 0:
+        key_findings.append(f"{products_with_limited} product(s) with limited or herbal supplement data")
+
+    # Build complete report
+    report = {
+        "research_metadata": {
+            "date_completed": datetime.now().strftime('%Y-%m-%d'),
+            "snomed_change_report": snomed_change_report,
+            "research_period": date_range,
+            "total_products_researched": len(medicinal_products)
+        },
+        "medicinal_products": medicinal_products,
+        "summary": {
+            "products_with_strong_data": products_with_strong,
+            "products_with_limited_data": products_with_limited,
+            "products_requiring_manual_review": products_requiring_review,
+            "key_findings": key_findings
+        }
+    }
+
+    return report
 
 
 def generate_reference_document(products, research_data, output_path):
@@ -779,19 +935,31 @@ def main():
         print("  python3 research_medicinal_products.py --generate")
         print("=" * 70)
 
-    # Generate reference document
+    # Generate output documents
     input_basename = os.path.basename(csv_path)
     date_range = input_basename.replace("SNOMEDCT-AU-MedicinalProducts-", "").replace(".csv", "")
-    output_basename = REFERENCE_DOC_PATTERN.format(date_range=date_range)
-    output_path = os.path.join(WORKING_DIR, output_basename)
 
-    generate_reference_document(products, research_data, output_path)
+    # Generate JSON report
+    snomed_report = f"SNOMEDCT-AU-concept-changes-{date_range}.csv"
+    json_report = generate_json_report(products, research_data, snomed_report, date_range)
+    json_basename = JSON_REPORT_PATTERN.format(date_range=date_range)
+    json_path = os.path.join(WORKING_DIR, json_basename)
+
+    with open(json_path, 'w', encoding='utf-8') as f:
+        json.dump(json_report, f, indent=2, ensure_ascii=False)
+    print(f"JSON report generated: {json_path}")
+
+    # Generate CSV reference document
+    csv_basename = CSV_REFERENCE_PATTERN.format(date_range=date_range)
+    csv_path_output = os.path.join(WORKING_DIR, csv_basename)
+    generate_reference_document(products, research_data, csv_path_output)
 
     print("\n" + "=" * 70)
     print("NEXT STEPS")
     print("=" * 70)
-    print("1. Review the reference document in WorkingFiles/")
-    print("2. Use findings to update AHT in PoolParty")
+    print(f"1. Review JSON report: {json_basename}")
+    print(f"2. Review CSV reference: {csv_basename}")
+    print("3. Use findings to update AHT in PoolParty")
     print("=" * 70)
 
 
