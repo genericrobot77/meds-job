@@ -67,6 +67,9 @@ def process_ncts_zip(zip_path):
         extract_root, "**", "Snapshot", "Refset", "Map", "*SimpleMapSnapshot*.txt"
     ), recursive=True)
 
+    # Select iRefset specifically
+    map_files = [f for f in map_files if 'iRefset_SimpleMapSnapshot' in f]
+
     if map_files:
         src = map_files[0]
         filename = os.path.basename(src)

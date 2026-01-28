@@ -29,6 +29,30 @@ from datetime import datetime
 import urllib.parse
 import subprocess
 import re
+import requests
+
+try:
+    from anthropic import Anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
+
+# Load API key from .env file
+def load_env_file():
+    """Load environment variables from .env file."""
+    env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.exists(env_file):
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip().strip('"\'')
+                    if key and value and value != 'your-api-key-here':
+                        os.environ[key] = value
+
+load_env_file()
 
 # Configuration - relative to script location (project root)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -134,6 +158,79 @@ def check_beers_criteria(drug_name, beers_data):
     return "Not listed"
 
 
+def search_wikidata(drug_name):
+    """Search Wikidata for medicinal product data using SPARQL.
+
+    Returns dict with: drugbank_id, atc_codes, icd10_codes, wikidata_uri
+    All Wikidata matches get confidence score of 100 (exact matches)
+    Note: ICD-10 codes are rarely in Wikidata - manual search at AAPC usually needed
+    """
+    wikidata_results = {
+        'drugbank_id': '',
+        'drugbank_id_confidence': 0,
+        'atc_codes': [],
+        'atc_codes_confidence': 0,
+        'icd10_codes': [],
+        'icd10_codes_confidence': 0,
+        'wikidata_uri': ''
+    }
+
+    try:
+        # SPARQL query - search for any entity with the drug name that has medical identifiers
+        # This is a broad search that should catch most drugs
+        sparql_query = f"""
+        SELECT DISTINCT ?item ?itemLabel ?drugbankId ?atcCode ?icd10Code
+        WHERE {{
+          ?item rdfs:label "{drug_name}"@en .
+          ?item (wdt:P31|wdt:P279) wd:Q12140 .
+          OPTIONAL {{ ?item wdt:P715 ?drugbankId . }}
+          OPTIONAL {{ ?item wdt:P273 ?atcCode . }}
+          OPTIONAL {{ ?item wdt:P494 ?icd10Code . }}
+          SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en" . }}
+        }}
+        LIMIT 10
+        """
+
+        url = "https://query.wikidata.org/sparql"
+        headers = {'Accept': 'application/sparql-results+json'}
+        params = {
+            'query': sparql_query,
+            'format': 'json'
+        }
+
+        response = requests.get(url, params=params, headers=headers, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+
+        if data.get('results', {}).get('bindings'):
+            for binding in data['results']['bindings']:
+                # Capture Wikidata URI
+                if 'item' in binding and binding['item'].get('value') and not wikidata_results['wikidata_uri']:
+                    wikidata_results['wikidata_uri'] = binding['item']['value']
+
+                if 'drugbankId' in binding and binding['drugbankId'].get('value'):
+                    wikidata_results['drugbank_id'] = binding['drugbankId']['value']
+                    wikidata_results['drugbank_id_confidence'] = 100  # Exact match from Wikidata
+                if 'atcCode' in binding and binding['atcCode'].get('value'):
+                    atc = binding['atcCode']['value']
+                    if atc not in wikidata_results['atc_codes']:
+                        wikidata_results['atc_codes'].append(atc)
+                        if not wikidata_results['atc_codes_confidence']:
+                            wikidata_results['atc_codes_confidence'] = 100  # Exact match from Wikidata
+                if 'icd10Code' in binding and binding['icd10Code'].get('value'):
+                    icd10 = binding['icd10Code']['value']
+                    if icd10 not in wikidata_results['icd10_codes']:
+                        wikidata_results['icd10_codes'].append(icd10)
+                        if not wikidata_results['icd10_codes_confidence']:
+                            wikidata_results['icd10_codes_confidence'] = 100  # Exact match from Wikidata
+    except Exception as e:
+        # Silently fail - Wikidata search is optional
+        # In production, you may want to log these errors for debugging
+        pass
+
+    return wikidata_results
+
+
 def find_medicinal_products_csv():
     """Find the filtered medicinal products CSV in outputs folder."""
     pattern = os.path.join(OUTPUTS_DIR, "SNOMEDCT-AU-MedicinalProducts-*.csv")
@@ -157,7 +254,35 @@ def load_research_data():
     """Load existing research data if available."""
     if os.path.exists(RESEARCH_DATA_FILE):
         with open(RESEARCH_DATA_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            data = json.load(f)
+
+            # Ensure all records have confidence score fields
+            for concept_id, record in data.items():
+                research = record.get('research', {})
+
+                # Add confidence fields if missing
+                if 'drugbank_id_confidence' not in research:
+                    # If they have a value from before confidence scoring, set to 100
+                    research['drugbank_id_confidence'] = 100 if research.get('drugbank_id') else 0
+
+                if 'atc_codes_confidence' not in research:
+                    research['atc_codes_confidence'] = 100 if research.get('atc_codes') else 0
+
+                if 'icd10_codes_confidence' not in research:
+                    research['icd10_codes_confidence'] = 100 if research.get('icd10_codes') else 0
+
+                if 'pregnancy_category_au_confidence' not in research:
+                    research['pregnancy_category_au_confidence'] = 100 if research.get('pregnancy_category_au') else 0
+
+                if 'pregnancy_category_fda_confidence' not in research:
+                    research['pregnancy_category_fda_confidence'] = 100 if research.get('pregnancy_category_fda') else 0
+
+                if 'beers_criteria_confidence' not in research:
+                    research['beers_criteria_confidence'] = 100 if research.get('beers_criteria') else 0
+
+                record['research'] = research
+
+            return data
     return {}
 
 
@@ -194,17 +319,52 @@ def create_research_template(products, beers_data=None):
                 'status': status,
                 'research': {
                     'drugbank_id': '',
+                    'drugbank_id_confidence': 0,
                     'drugbank_url': '',
+                    'wikidata_uri': '',
                     'atc_codes': [],
+                    'atc_codes_confidence': 0,
                     'atc_classification': '',
+                    'icd10_codes': [],
+                    'icd10_codes_confidence': 0,
                     'pregnancy_category_au': '',
+                    'pregnancy_category_au_confidence': 0,
                     'pregnancy_category_fda': '',
+                    'pregnancy_category_fda_confidence': 0,
                     'beers_criteria': beers_value,
+                    'beers_criteria_confidence': 0,
                     'clinical_notes': '',
                     'is_single_substance': None,
+                    'wikidata_searched': False,
                     'researched_date': ''
                 }
             }
+
+        # Search Wikidata for new or previously unfound data
+        research = research_data[concept_id].get('research', {})
+        if not research.get('wikidata_searched'):
+            wikidata_results = search_wikidata(preferred_term)
+
+            # Update with Wikidata results (100% confidence for exact Wikidata matches)
+            if wikidata_results['wikidata_uri'] and not research.get('wikidata_uri'):
+                research['wikidata_uri'] = wikidata_results['wikidata_uri']
+
+            if wikidata_results['drugbank_id'] and not research.get('drugbank_id'):
+                research['drugbank_id'] = wikidata_results['drugbank_id']
+                research['drugbank_id_confidence'] = wikidata_results['drugbank_id_confidence']
+                research['drugbank_url'] = f"https://go.drugbank.com/drugs/{wikidata_results['drugbank_id']}"
+                research['is_single_substance'] = True
+
+            if wikidata_results['atc_codes'] and not research.get('atc_codes'):
+                research['atc_codes'] = wikidata_results['atc_codes']
+                research['atc_codes_confidence'] = wikidata_results['atc_codes_confidence']
+
+            if wikidata_results['icd10_codes'] and not research.get('icd10_codes'):
+                research['icd10_codes'] = wikidata_results['icd10_codes']
+                research['icd10_codes_confidence'] = wikidata_results['icd10_codes_confidence']
+
+            research['wikidata_searched'] = True
+            research_data[concept_id]['research'] = research
 
     return research_data
 
@@ -256,33 +416,45 @@ def generate_json_report(products, research_data, snomed_change_report, date_ran
             products_with_limited += 1
         products_requiring_review += 1
 
-        # Build product entry
+        # Build product entry with confidence scores
         product_entry = {
             "snomed_code": concept_id,
             "snomed_uri": product.get('SNOMED_uri', f"http://snomed.info/id/{concept_id}"),
+            "wikidata_uri": research.get('wikidata_uri') or None,
             "preferred_label": preferred_term,
             "status": status,
             "product_type": product_type,
             "research": {
                 "drugbank_id": research.get('drugbank_id') or None,
+                "drugbank_id_confidence": research.get('drugbank_id_confidence', 0),
                 "brand_names": [],
                 "atc_code": research.get('atc_codes')[0] if isinstance(research.get('atc_codes'), list) and research.get('atc_codes') else (research.get('atc_codes') or None),
+                "atc_codes_confidence": research.get('atc_codes_confidence', 0),
                 "atc_description": research.get('atc_classification') or None,
+                "icd10_codes": research.get('icd10_codes') or [],
+                "icd10_codes_confidence": research.get('icd10_codes_confidence', 0),
                 "indication": "",
                 "pregnancy_category": {
                     "category": research.get('pregnancy_category_au') or "Not assigned",
+                    "confidence": research.get('pregnancy_category_au_confidence', 0),
                     "fda_category": research.get('pregnancy_category_fda') or "Not available",
+                    "fda_confidence": research.get('pregnancy_category_fda_confidence', 0),
                     "description": "",
                     "recommendation": ""
                 },
                 "beers_criteria": {
                     "listed": research.get('beers_criteria', '').lower() == 'listed',
+                    "confidence": research.get('beers_criteria_confidence', 0),
                     "reason": ""
                 },
                 "additional_notes": research.get('clinical_notes') or ""
             },
             "data_completeness": completeness,
-            "research_sources": research_sources if research_sources else ["Pending research"]
+            "research_sources": research_sources if research_sources else ["Pending research"],
+            "match_quality": {
+                "exact_matches": sum([1 for c in [research.get('drugbank_id_confidence', 0), research.get('atc_codes_confidence', 0), research.get('icd10_codes_confidence', 0)] if c == 100]),
+                "note": "Only use codes with confidence = 100 for official imports. Review codes <100 manually."
+            }
         }
 
         medicinal_products.append(product_entry)
@@ -323,11 +495,19 @@ def generate_reference_document(products, research_data, output_path):
         'SNOMED_uri',
         'status',
         'drugbank_id',
+        'drugbank_id_confidence',
+        'wikidata_uri',
         'atc_codes',
+        'atc_codes_confidence',
         'atc_classification',
+        'icd10_codes',
+        'icd10_codes_confidence',
         'pregnancy_category_au',
+        'pregnancy_category_au_confidence',
         'pregnancy_category_fda',
+        'pregnancy_category_fda_confidence',
         'beers_criteria',
+        'beers_criteria_confidence',
         'is_single_substance',
         'clinical_notes',
         'researched_date'
@@ -349,11 +529,19 @@ def generate_reference_document(products, research_data, output_path):
                 'SNOMED_uri': product.get('SNOMED_uri', ''),
                 'status': product['status'],
                 'drugbank_id': research.get('drugbank_id', ''),
+                'drugbank_id_confidence': research.get('drugbank_id_confidence', 0),
+                'wikidata_uri': research.get('wikidata_uri', ''),
                 'atc_codes': '; '.join(research.get('atc_codes', [])) if isinstance(research.get('atc_codes'), list) else research.get('atc_codes', ''),
+                'atc_codes_confidence': research.get('atc_codes_confidence', 0),
                 'atc_classification': research.get('atc_classification', ''),
+                'icd10_codes': '; '.join(research.get('icd10_codes', [])) if isinstance(research.get('icd10_codes'), list) else research.get('icd10_codes', ''),
+                'icd10_codes_confidence': research.get('icd10_codes_confidence', 0),
                 'pregnancy_category_au': research.get('pregnancy_category_au', ''),
+                'pregnancy_category_au_confidence': research.get('pregnancy_category_au_confidence', 0),
                 'pregnancy_category_fda': research.get('pregnancy_category_fda', ''),
+                'pregnancy_category_fda_confidence': research.get('pregnancy_category_fda_confidence', 0),
                 'beers_criteria': research.get('beers_criteria', ''),
+                'beers_criteria_confidence': research.get('beers_criteria_confidence', 0),
                 'is_single_substance': research.get('is_single_substance', ''),
                 'clinical_notes': research.get('clinical_notes', ''),
                 'researched_date': research.get('researched_date', '')
@@ -386,13 +574,25 @@ def display_research_summary(products, research_data):
             print(f"   SNOMED Code: {concept_id}")
             print(f"   SNOMED URI: {product.get('SNOMED_uri', 'N/A')}")
 
-            if has_research:
-                r = research_data[concept_id]['research']
+            if concept_id in research_data:
+                r = research_data[concept_id].get('research', {})
+
+                # Show Wikidata search status
+                if r.get('wikidata_searched'):
+                    print(f"   [Wikidata searched]", end="")
+                    if not (r.get('drugbank_id') or r.get('atc_codes') or r.get('icd10_codes')):
+                        print(" - No codes found")
+                    else:
+                        print()
+
                 if r.get('drugbank_id'):
                     print(f"   DrugBank: {r['drugbank_id']}")
                 if r.get('atc_codes'):
                     atc = '; '.join(r['atc_codes']) if isinstance(r['atc_codes'], list) else r['atc_codes']
                     print(f"   ATC: {atc}")
+                if r.get('icd10_codes'):
+                    icd10 = '; '.join(r['icd10_codes']) if isinstance(r['icd10_codes'], list) else r['icd10_codes']
+                    print(f"   ICD-10: {icd10}")
                 if r.get('pregnancy_category_au'):
                     print(f"   Pregnancy (AU): {r['pregnancy_category_au']}")
 
@@ -402,11 +602,262 @@ def print_research_urls():
     print("\n" + "=" * 70)
     print("RESEARCH RESOURCES")
     print("=" * 70)
-    print("DrugBank:      https://go.drugbank.com/")
-    print("WHO ATC Index: https://www.whocc.no/atc_ddd_index/")
-    print("TGA Database:  https://www.tga.gov.au/resources/health-professional-information-and-resources/australian-categorisation-system-prescribing-medicines-pregnancy/prescribing-medicines-pregnancy-database")
-    print("Beers Criteria: American Geriatrics Society Beers Criteria (2023)")
+    print("PRIMARY SOURCE:")
+    print("  Wikidata:        https://www.wikidata.org/")
+    print("                   Search drug names - often has all codes in one place")
+    print()
+    print("FALLBACK SOURCES (if not found on Wikidata):")
+    print("  DrugBank:        https://go.drugbank.com/")
+    print("                   For DrugBank IDs (DB#####)")
+    print()
+    print("  WHO ATC Index:   https://www.whocc.no/atc_ddd_index/")
+    print("                   For ATC codes and classifications")
+    print()
+    print("  AAPC ICD-10:     https://www.aapc.com/codes/code-search/")
+    print("                   For ICD-10-CM diagnosis codes")
+    print()
+    print("  TGA Database:    https://www.tga.gov.au/prescribing-medicines-pregnancy-database")
+    print("                   For Australian pregnancy categories (A, B1, B2, B3, C, D, X)")
+    print()
+    print("  Beers Criteria:  American Geriatrics Society Beers Criteria (2023)")
     print("=" * 70)
+
+
+def extract_value_and_confidence(field_data, field_name, default_value='', is_list=False):
+    """Extract value and confidence from Claude response field.
+
+    Handles both formats:
+    - {"value": "...", "confidence": 100}
+    - Plain value (backward compatibility)
+    """
+    if isinstance(field_data, dict) and 'value' in field_data:
+        confidence = field_data.get('confidence', 0)
+        value = field_data.get('value', default_value)
+        return value, confidence
+    elif field_data:
+        # Plain value, assume confidence 100 if non-empty
+        return field_data, (100 if field_data else 0)
+    else:
+        return ([] if is_list else default_value), 0
+
+
+def normalize_claude_response(claude_results):
+    """Normalize Claude's response to consistent format with confidence scores."""
+    normalized = {}
+
+    for concept_id, research in claude_results.items():
+        normalized_research = {}
+
+        # Handle each code field with confidence
+        if 'drugbank_id' in research:
+            value, confidence = extract_value_and_confidence(research['drugbank_id'], 'drugbank_id')
+            normalized_research['drugbank_id'] = value
+            normalized_research['drugbank_id_confidence'] = confidence
+
+        if 'atc_codes' in research:
+            value, confidence = extract_value_and_confidence(research['atc_codes'], 'atc_codes', is_list=True)
+            if isinstance(value, str) and value:
+                value = [value]
+            normalized_research['atc_codes'] = value if isinstance(value, list) else []
+            normalized_research['atc_codes_confidence'] = confidence
+
+        if 'icd10_codes' in research:
+            value, confidence = extract_value_and_confidence(research['icd10_codes'], 'icd10_codes', is_list=True)
+            if isinstance(value, str) and value:
+                value = [value]
+            normalized_research['icd10_codes'] = value if isinstance(value, list) else []
+            normalized_research['icd10_codes_confidence'] = confidence
+
+        if 'pregnancy_category_au' in research:
+            value, confidence = extract_value_and_confidence(research['pregnancy_category_au'], 'pregnancy_category_au')
+            normalized_research['pregnancy_category_au'] = value
+            normalized_research['pregnancy_category_au_confidence'] = confidence
+
+        if 'pregnancy_category_fda' in research:
+            value, confidence = extract_value_and_confidence(research['pregnancy_category_fda'], 'pregnancy_category_fda')
+            normalized_research['pregnancy_category_fda'] = value
+            normalized_research['pregnancy_category_fda_confidence'] = confidence
+
+        if 'beers_criteria' in research:
+            value, confidence = extract_value_and_confidence(research['beers_criteria'], 'beers_criteria')
+            normalized_research['beers_criteria'] = value
+            normalized_research['beers_criteria_confidence'] = confidence
+
+        # Copy over non-code fields as-is
+        for key in ['preferred_term', 'wikidata_uri', 'atc_classification', 'is_single_substance', 'clinical_notes', 'researched_date']:
+            if key in research:
+                normalized_research[key] = research[key]
+
+        normalized[concept_id] = normalized_research
+
+    return normalized
+
+
+def perform_claude_research_automated(products, research_data):
+    """Use Claude API to automatically research products and update research_data.json"""
+    if not ANTHROPIC_AVAILABLE:
+        print("\nError: anthropic package not installed")
+        print("Install with: pip install anthropic")
+        print("\nAlternatively, copy the prompts above into Claude Code at: https://claude.ai/code")
+        return research_data
+
+    new_products = [p for p in products if p['status'].lower() == 'new']
+    unresearched = [p for p in new_products
+                    if p['concept_ID'] not in research_data
+                    or not research_data[p['concept_ID']].get('research', {}).get('researched_date')
+                    or not research_data[p['concept_ID']].get('research', {}).get('icd10_codes')]
+
+    if not unresearched:
+        print("\nAll products have been fully researched!")
+        return research_data
+
+    print("\n" + "=" * 70)
+    print("CLAUDE API RESEARCH MODE - AUTOMATED")
+    print("=" * 70)
+    print(f"Researching {len(unresearched)} products using Claude...")
+    print()
+
+    # Build product list for Claude
+    product_list = "\n".join([f"  - {p['preferred_term']} (SNOMED: {p['concept_ID']})"
+                              for p in unresearched])
+
+    research_prompt = f"""Research the following new Australian medicinal products and provide results as JSON with confidence scores.
+
+## Products to Research
+{product_list}
+
+## Research Instructions
+
+Search for EACH product using web search. IMPORTANT: Search thoroughly for ALL codes.
+
+For EACH code found, include a confidence score (0-100):
+- **100** = Exact match from official source (e.g., official DrugBank record, Wikidata entry, official TGA/FDA database)
+- **90-99** = Very high confidence (e.g., official source with minor variations)
+- **70-89** = High confidence (e.g., multiple reliable sources agree)
+- **50-69** = Medium confidence (e.g., some ambiguity or single reliable source)
+- **Below 50** = Low confidence (fuzzy match, possible alternative interpretation)
+
+1. **DrugBank ID** - Search: "DRUGNAME drugbank" or https://go.drugbank.com/drugs?q=DRUGNAME
+   - Extract DB##### ID (e.g., DB17449)
+   - Only for single-substance drugs
+   - Return: "value": "DB#####" and "confidence": 100 if exact official record
+
+2. **ATC Code** - Search: "DRUGNAME atc code" or https://www.whocc.no/atc_ddd_index/
+   - Extract code like D03BA03, B06AC08
+   - Include the classification description
+   - Return: "value": ["D03BA03"] and "confidence": 100 if from official WHO ATC index
+
+3. **ICD-10 Code (PRIORITY)** - Search AAPC directly: https://www.aapc.com/codes/code-search/
+   - This is critical - search by drug name
+   - Look for ICD-10-CM diagnosis codes that match the drug indication
+   - Format: Letter + digits + decimal (e.g., L04AX, H35.3)
+   - Example: Search "Avacincaptad pegol" to find geographic atrophy code
+   - If not found on AAPC, try: "DRUGNAME icd-10-cm code" web search
+   - Return: "value": ["H35.33"] and "confidence": 100 if from official AAPC
+   - Leave empty ONLY if truly not found after searching
+
+4. **Pregnancy Category (AU)** - Search TGA database: https://www.tga.gov.au/prescribing-medicines-pregnancy-database
+   - Australian categories: A, B1, B2, B3, C, D, X
+   - Return confidence 100 if from official TGA source
+
+5. **Beers Criteria** - Check American Geriatrics Society Beers Criteria 2023
+   - Default: "Not listed" (most new drugs aren't)
+   - Return confidence 100 if verified from official Beers Criteria list
+
+## Output Format
+Return ONLY valid JSON (no other text):
+```json
+{{
+  "concept_ID_1": {{
+    "preferred_term": "Drug Name",
+    "drugbank_id": {{"value": "DB#####", "confidence": 100}},
+    "drugbank_id_confidence": 100,
+    "wikidata_uri": "https://www.wikidata.org/wiki/Q#####",
+    "atc_codes": {{"value": ["D03BA03"], "confidence": 100}},
+    "atc_codes_confidence": 100,
+    "atc_classification": "Classification name",
+    "icd10_codes": {{"value": ["H35.33"], "confidence": 100}},
+    "icd10_codes_confidence": 100,
+    "pregnancy_category_au": {{"value": "B1", "confidence": 100}},
+    "pregnancy_category_au_confidence": 100,
+    "pregnancy_category_fda": {{"value": "", "confidence": 0}},
+    "pregnancy_category_fda_confidence": 0,
+    "beers_criteria": {{"value": "Not listed", "confidence": 100}},
+    "beers_criteria_confidence": 100,
+    "is_single_substance": true,
+    "clinical_notes": "",
+    "researched_date": "{datetime.now().strftime('%Y-%m-%d')}"
+  }}
+}}
+```
+
+## Important Notes
+- Search THOROUGHLY for ICD-10 codes on https://www.aapc.com/codes/code-search/
+- Example: Avacincaptad pegol is for geographic atrophy, so search for that condition code (H35.33)
+- Use drug indication/condition as search term if drug name alone doesn't work
+- ICD-10 codes should ALWAYS be included if searchable
+- ALWAYS provide a confidence score for each code found
+- Confidence score 100 = Use this code | Score <100 = Review manually
+- If found on Wikidata, include the Wikidata URI
+- Leave fields empty only if genuinely not found after thorough search"""
+
+    try:
+        client = Anthropic()
+        print("Sending research request to Claude...")
+
+        message = client.messages.create(
+            model="claude-opus-4-5-20251101",
+            max_tokens=4096,
+            messages=[
+                {
+                    "role": "user",
+                    "content": research_prompt
+                }
+            ]
+        )
+
+        response_text = message.content[0].text
+
+        # Extract JSON from response
+        json_start = response_text.find('{')
+        json_end = response_text.rfind('}') + 1
+
+        if json_start != -1 and json_end > json_start:
+            json_str = response_text[json_start:json_end]
+            claude_results = json.loads(json_str)
+
+            # Normalize response to consistent format with confidence scores
+            normalized_results = normalize_claude_response(claude_results)
+
+            # Update research_data with Claude's findings
+            for concept_id, research in normalized_results.items():
+                if concept_id in research_data:
+                    research['wikidata_searched'] = True
+                    research_data[concept_id]['research'].update(research)
+                    # Show confidence info
+                    term = research_data[concept_id]['preferred_term']
+                    confidence_info = []
+                    if research.get('drugbank_id') and research.get('drugbank_id_confidence'):
+                        confidence_info.append(f"DB:{research['drugbank_id_confidence']}")
+                    if research.get('atc_codes') and research.get('atc_codes_confidence'):
+                        confidence_info.append(f"ATC:{research['atc_codes_confidence']}")
+                    if research.get('icd10_codes') and research.get('icd10_codes_confidence'):
+                        confidence_info.append(f"ICD10:{research['icd10_codes_confidence']}")
+                    info_str = f" [{', '.join(confidence_info)}]" if confidence_info else ""
+                    print(f"✓ Updated: {term}{info_str}")
+
+            save_research_data(research_data)
+            print(f"\n✓ Research complete! {len(normalized_results)} products updated.")
+        else:
+            print("Error: Could not extract JSON from Claude's response")
+            print("Response:", response_text[:500])
+
+    except Exception as e:
+        print(f"Error contacting Claude API: {e}")
+        print("Make sure ANTHROPIC_API_KEY environment variable is set")
+        print("\nAlternatively, copy the prompts above into Claude Code at: https://claude.ai/code")
+
+    return research_data
 
 
 def perform_claude_research_interactive():
@@ -453,12 +904,21 @@ def perform_claude_research_interactive():
 def generate_claude_prompts(products, research_data):
     """Generate prompts for Claude Code to research each product."""
     new_products = [p for p in products if p['status'].lower() == 'new']
-    unresearched = [p for p in new_products
-                    if p['concept_ID'] not in research_data
-                    or not research_data[p['concept_ID']].get('research', {}).get('researched_date')]
+
+    # Include products that are unresearched OR missing ICD-10 codes
+    unresearched = []
+    for p in new_products:
+        concept_id = p['concept_ID']
+        if concept_id not in research_data:
+            unresearched.append(p)
+        else:
+            research = research_data[concept_id].get('research', {})
+            # Show prompts if missing ICD-10 codes or not fully researched
+            if not research.get('researched_date') or not research.get('icd10_codes'):
+                unresearched.append(p)
 
     if not unresearched:
-        print("\nAll products have been researched!")
+        print("\nAll products have been fully researched with all codes!")
         return
 
     print("\n" + "=" * 70)
@@ -481,37 +941,48 @@ def generate_claude_prompts(products, research_data):
 
     prompt = f"""# Medicinal Product Research Task
 
-Research the following new Australian medicinal products by fetching data from official websites.
+Research the following new Australian medicinal products.
 
 ## Products to Research
 {product_list}
 
-## Research Instructions - Use WebFetch to get data from these sites
+## Research Instructions - SEARCH WIKIDATA FIRST, THEN FALLBACK SOURCES
 
 ### For each product:
 
-1. **DrugBank Search** - Use WebFetch to search:
+1. **WIKIDATA SEARCH (Primary)** - Search Wikidata for comprehensive drug data:
+   - Use web search: site:wikidata.org DRUGNAME "medicinal product"
+   - Look for DrugBank IDs, ATC codes, and ICD-10 codes
+   - This is FREE and often has all codes in one place
+   - Example: site:wikidata.org "Anacaulase-bcdb" medicinal product
+
+### IF NOT FOUND ON WIKIDATA, search these specific sites:
+
+2. **DrugBank ID** (if not on Wikidata) - https://go.drugbank.com/
    - Try: https://go.drugbank.com/drugs?q=DRUGNAME
    - Extract DB##### ID from the results (e.g., DB17449)
    - Only for single-substance drugs (skip combinations)
 
-2. **ATC Code Search** - Use WebFetch to search:
+3. **ATC Code** (if not on Wikidata) - https://www.whocc.no/atc_ddd_index/
    - Try: https://atcddd.fhi.no/atc_ddd_index/?code=&showdescription=yes&search=DRUGNAME
    - Extract the ATC code (e.g., D03BA03, B06AC08)
    - Note the classification (e.g., "Proteolytic enzymes")
 
-3. **Pregnancy Category** (Optional)
-   - Only if easily found in DrugBank or other sources
-   - Leave blank if not readily available
+4. **ICD-10 Code** (if not on Wikidata) - https://www.aapc.com/codes/code-search/
+   - Search the drug name on AAPC Code Search
+   - Look for ICD-10-CM codes (medical diagnosis codes)
+   - Format: Letter + 2 digits + decimal + 1-2 digits (e.g., L04AX)
+   - May not be available for all drugs
 
-4. **Beers Criteria**
-   - Default to "Not listed" (most new drugs aren't listed)
+5. **Pregnancy Category** (Optional) - https://www.tga.gov.au/prescribing-medicines-pregnancy-database
+   - TGA Database for Australian categories: A, B1, B2, B3, C, D, X
+   - Leave blank if not found
 
-5. **Clinical Notes**
-   - Brief description from DrugBank or product info
+6. **Beers Criteria** - American Geriatrics Society Beers Criteria (2023)
+   - Most new drugs aren't listed - Default to "Not listed"
 
-## Instructions
-Use the WebFetch tool to query the websites above for each drug. Extract the information and compile results.
+7. **Clinical Notes** - From DrugBank or product information
+   - Brief description of drug class, indication, brand name
 
 ## Output Format
 Provide results in JSON:
@@ -522,6 +993,7 @@ Provide results in JSON:
     "drugbank_id": "DB17449",
     "atc_codes": ["D03BA03"],
     "atc_classification": "Proteolytic enzymes",
+    "icd10_codes": ["L04AX"],
     "pregnancy_category_au": "",
     "pregnancy_category_fda": "",
     "beers_criteria": "Not listed",
@@ -541,6 +1013,24 @@ After you complete research and provide the JSON:
 """
     print(prompt)
     print("-" * 70)
+    print("\n" + "=" * 70)
+    print("HOW TO USE THIS PROMPT")
+    print("=" * 70)
+    print("Option 1: COPY & PASTE into Claude Code")
+    print("  1. Copy the entire prompt above (from '# Medicinal Product' to the last ```)")
+    print("  2. Open Claude Code at: https://claude.ai/code")
+    print("  3. Paste the prompt and follow the research instructions")
+    print("  4. Claude will use web search to find the codes")
+    print()
+    print("Option 2: MANUAL RESEARCH")
+    print("  1. Copy the product names and search each website manually:")
+    print("     - Wikidata: https://www.wikidata.org/")
+    print("     - DrugBank: https://go.drugbank.com/")
+    print("     - ATC codes: https://www.whocc.no/atc_ddd_index/")
+    print("     - ICD-10 codes: https://www.aapc.com/codes/code-search/")
+    print("  2. Update WorkingFiles/research_data.json with your findings")
+    print("  3. Run: python3 research_medicinal_products.py --generate")
+    print("=" * 70)
 
 
 def search_atc_code(drug_name):
@@ -600,39 +1090,53 @@ def generate_antigravity_prompts(products, research_data):
 
     prompt = f"""# Medicinal Product Research Task
 
-Research the following new Australian medicinal products using DIRECT website lookups.
+Research the following new Australian medicinal products. PRIMARY: Check Wikidata first, then fallback sources.
 
 ## Products to Research
 {product_list}
 
-## Research Method - USE THESE WEBSITES DIRECTLY (No web search needed)
+## Research Method - PRIMARY: Wikidata, FALLBACK: Specified Websites
 
-### 1. DrugBank ID - https://go.drugbank.com/
+### 1. WIKIDATA SEARCH (PRIMARY - FREE)
+- Search Wikidata for the drug name: https://www.wikidata.org/
+- Look for "medicinal product" entries
+- Extract available: DrugBank IDs, ATC codes, ICD-10 codes
+- This is your best source - free and comprehensive
+
+### IF NOT FOUND ON WIKIDATA, USE THESE FALLBACK SOURCES:
+
+### 2. DrugBank ID - https://go.drugbank.com/
 - Search the drug name directly on the site
 - Extract the DB##### ID from the URL (e.g., DB17449)
 - **Only for single-substance medications** - skip combinations, acetate/phosphate variations
 - If no result, leave blank
 
-### 2. ATC Code - https://atcddd.fhi.no/atc_ddd_index/
+### 3. ATC Code - https://www.whocc.no/atc_ddd_index/
 - Search the drug name or active ingredient
 - Record the ATC code (e.g., D03BA03, B06AC08)
 - Include full classification (e.g., "D03BA - Proteolytic enzymes")
-- Very new drugs may not have codes yet - note as "Pending" if not found
+- Very new drugs may not have codes yet - note as "Not found" if not available
 
-### 3. Pregnancy Category (Australian TGA preferred)
+### 4. ICD-10 Code - https://www.aapc.com/codes/code-search/
+- Use AAPC Code Search for ICD-10-CM codes
+- Search by drug name to find associated diagnosis codes
+- Format: Letter + 2 digits + decimal + 1-2 digits (e.g., L04AX)
+- Many new drugs won't have ICD-10 codes yet - leave blank if not found
+
+### 5. Pregnancy Category (Australian TGA preferred)
 - TGA Database: https://www.tga.gov.au/prescribing-medicines-pregnancy-database
 - Australian categories: A, B1, B2, B3, C, D, X
-- If not in TGA, note "Not found in TGA"
+- If not in TGA, search DrugBank for FDA/other info
 - FDA information is secondary (no letter categories since 2015)
 
-### 4. Beers Criteria
-- American Geriatrics Society Beers Criteria
+### 6. Beers Criteria
+- American Geriatrics Society Beers Criteria (2023)
 - Most new drugs won't be listed
 - Default: "Not listed"
 
-### 5. Clinical Notes
+### 7. Clinical Notes
 - Drug class, indication, brand name
-- Can source from DrugBank product pages
+- Source from DrugBank product pages
 
 ## Output Format
 Provide JSON results:
@@ -643,6 +1147,7 @@ Provide JSON results:
     "drugbank_id": "DB#####",
     "atc_codes": ["D03BA03"],
     "atc_classification": "Classification name",
+    "icd10_codes": ["L04AX"],
     "pregnancy_category_au": "Category or blank",
     "pregnancy_category_fda": "Optional",
     "beers_criteria": "Not listed",
@@ -654,17 +1159,29 @@ Provide JSON results:
 ```
 
 ## Notes
-- Use only the specified websites - no general web searches needed
-- If information not found on site, leave field blank
+- START WITH WIKIDATA - it's free and often has all codes
+- Use the specified fallback websites if Wikidata doesn't have codes
+- If information not found on any site, leave field blank
 - For combination drugs, research each component separately if applicable
-- Prioritize Australian sources (TGA)
+- Prioritize Australian sources (TGA) for pregnancy categories
 """
     print(prompt)
     print("-" * 70)
-    print("\nAfter Antigravity completes research:")
-    print(f"1. Copy the JSON results")
-    print(f"2. Update: WorkingFiles/research_data.json")
-    print(f"3. Run: python3 research_medicinal_products.py --generate")
+    print("\n" + "=" * 70)
+    print("HOW TO USE THIS PROMPT")
+    print("=" * 70)
+    print("1. Copy the entire prompt above")
+    print("2. Paste into Antigravity Agent (you have quota for this)")
+    print("3. Antigravity will visit the websites and extract codes")
+    print("4. It will return JSON results")
+    print()
+    print("When Antigravity completes:")
+    print("1. Copy the JSON results it provides")
+    print("2. Open: WorkingFiles/research_data.json")
+    print("3. Update each product's 'research' object with the findings")
+    print("4. Save the file")
+    print("5. Run: python3 research_medicinal_products.py --generate")
+    print("=" * 70)
 
 
 def update_research_interactively(research_data):
@@ -700,7 +1217,8 @@ def update_research_interactively(research_data):
 
         # DrugBank ID
         print("\n1. DrugBank ID")
-        print("   Search: https://go.drugbank.com/")
+        print("   PRIMARY: Check Wikidata first - https://www.wikidata.org/")
+        print("   FALLBACK: https://go.drugbank.com/")
         print("   Format: DB##### (e.g., DB17449)")
         print("   Note: Only for single-substance drugs, skip combinations")
         drugbank = input("   Enter DrugBank ID (or press Enter to skip): ").strip()
@@ -715,10 +1233,10 @@ def update_research_interactively(research_data):
 
         # ATC Codes
         print("\n2. ATC Code(s)")
-        print("   Search: https://atcddd.fhi.no/atc_ddd_index/")
+        print("   PRIMARY: Check Wikidata first - https://www.wikidata.org/")
+        print("   FALLBACK: https://www.whocc.no/atc_ddd_index/")
         print("   Format: D03BA03 or B06AC08 (may have multiple)")
         print("   Note: Very new drugs may not have ATC codes yet")
-        print("   If not found on direct site, can use: python3 research_medicinal_products.py --search-atc '{preferred_term}'")
         atc = input("   Enter ATC code(s), comma-separated (or press Enter): ").strip()
         if atc.lower() == 'q':
             break
@@ -739,9 +1257,24 @@ def update_research_interactively(research_data):
             if atc_class:
                 research['atc_classification'] = atc_class
 
+        # ICD-10 Code(s)
+        print("\n4. ICD-10 Code(s) (if available)")
+        print("   PRIMARY: Check Wikidata first - https://www.wikidata.org/")
+        print("   FALLBACK: https://www.aapc.com/codes/code-search/")
+        print("   Format: L04AX or N02BA01 (may have multiple)")
+        print("   Note: Leave blank if not found on Wikidata or AAPC")
+        icd10 = input("   Enter ICD-10 code(s), comma-separated (or press Enter): ").strip()
+        if icd10.lower() == 'q':
+            break
+        if icd10.lower() == 's':
+            continue
+        if icd10:
+            research['icd10_codes'] = [c.strip() for c in icd10.split(',')]
+
         # Pregnancy Category AU
-        print("\n4. Pregnancy Category (Australian TGA)")
-        print("   Search: https://www.tga.gov.au/prescribing-medicines-pregnancy-database")
+        print("\n5. Pregnancy Category (Australian TGA)")
+        print("   PRIMARY: https://www.tga.gov.au/prescribing-medicines-pregnancy-database")
+        print("   FALLBACK: DrugBank or FDA databases")
         print("   Categories: A, B1, B2, B3, C, D, X")
         print("   Note: This field is optional")
         preg_au = input("   Enter category (or press Enter to skip): ").strip()
@@ -753,7 +1286,7 @@ def update_research_interactively(research_data):
             research['pregnancy_category_au'] = preg_au
 
         # Pregnancy Category FDA
-        print("\n5. Pregnancy Category (FDA - optional)")
+        print("\n6. Pregnancy Category (FDA - optional)")
         print("   Note: FDA doesn't use letter categories since 2015")
         preg_fda = input("   Enter category (or press Enter to skip): ").strip()
         if preg_fda.lower() == 'q':
@@ -764,9 +1297,10 @@ def update_research_interactively(research_data):
             research['pregnancy_category_fda'] = preg_fda
 
         # Beers Criteria
-        print("\n6. Beers Criteria")
-        print("   American Geriatrics Society Beers Criteria")
+        print("\n7. Beers Criteria")
+        print("   American Geriatrics Society Beers Criteria (2023)")
         print("   Options: 'Listed', 'Not listed' (most new drugs aren't)")
+        print("   Note: Most new drugs will NOT be listed - default is 'Not listed'")
         beers = input("   Enter status (default: Not listed) [press Enter]: ").strip()
         if beers.lower() == 'q':
             break
@@ -779,7 +1313,7 @@ def update_research_interactively(research_data):
 
         # Single substance (if not already set)
         if research.get('is_single_substance') is None:
-            print("\n7. Single Substance Drug?")
+            print("\n8. Single Substance Drug?")
             print("   (Single substance = pure drug, Combination = multiple active ingredients)")
             single = input("   Single substance? (Y/N) [press Enter]: ").strip().upper()
             if single == 'Q':
@@ -790,7 +1324,7 @@ def update_research_interactively(research_data):
                 research['is_single_substance'] = single == 'Y'
 
         # Clinical notes
-        print("\n8. Clinical Notes (optional)")
+        print("\n9. Clinical Notes (optional)")
         print("   Brief description: drug class, indication, brand name")
         notes = input("   Enter notes (or press Enter to skip): ").strip()
         if notes.lower() == 'q':
@@ -832,10 +1366,11 @@ Options:
 
 Research Workflow:
     1. Run filter_medicinal_products.py first to identify new products
-    2. Run with --interactive and visit direct websites first
-    3. For missing ATC codes: run --search-atc DRUGNAME to web search
-    4. Update research_data.json with findings
-    5. Run with --generate to create final reference document
+    2. Run with --interactive and START WITH WIKIDATA for each drug
+    3. Then check DrugBank and ATC databases for missing codes
+    4. For missing ATC codes: run --search-atc DRUGNAME to web search
+    5. Update research_data.json with findings
+    6. Run with --generate to create final reference document
 
 Examples:
     python3 research_medicinal_products.py --interactive
@@ -894,9 +1429,16 @@ def main():
         pass
 
     elif mode == '--claude':
-        # Claude Code research mode - interactive
+        # Claude API automated research mode
         save_research_data(research_data)
-        perform_claude_research_interactive()
+        if ANTHROPIC_AVAILABLE:
+            research_data = perform_claude_research_automated(products, research_data)
+        else:
+            # Fallback to prompts if API not available
+            print("\nInstalling anthropic package...")
+            print("Run: pip install anthropic")
+            print("\nOr use prompts below:")
+            generate_claude_prompts(products, research_data)
 
     elif mode == '--antigravity':
         # Antigravity Agent mode
