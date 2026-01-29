@@ -729,7 +729,7 @@ def perform_claude_research_automated(products, research_data):
 
 ## Research Instructions
 
-Search for EACH product using web search. IMPORTANT: Search thoroughly for ALL codes.
+Search for EACH product using web search. IMPORTANT: Search thoroughly for ALL codes with EQUAL PRIORITY.
 
 For EACH code found, include a confidence score (0-100):
 - **100** = Exact match from official source (e.g., official DrugBank record, Wikidata entry, official TGA/FDA database)
@@ -738,32 +738,40 @@ For EACH code found, include a confidence score (0-100):
 - **50-69** = Medium confidence (e.g., some ambiguity or single reliable source)
 - **Below 50** = Low confidence (fuzzy match, possible alternative interpretation)
 
-1. **DrugBank ID** - Search: "DRUGNAME drugbank" or https://go.drugbank.com/drugs?q=DRUGNAME
-   - Extract DB##### ID (e.g., DB17449)
-   - Only for single-substance drugs
-   - Return: "value": "DB#####" and "confidence": 100 if exact official record
+## Search Strategy - Equal Priority for All Codes
 
-2. **ATC Code** - Search: "DRUGNAME atc code" or https://www.whocc.no/atc_ddd_index/
-   - Extract code like D03BA03, B06AC08
-   - Include the classification description
-   - Return: "value": ["D03BA03"] and "confidence": 100 if from official WHO ATC index
+**Primary Source: Wikidata** (Already searched by system)
+- If Wikidata has codes, use those (confidence 100)
+- If Wikidata has no results, search fallback sources for ALL codes
 
-3. **ICD-10 Code (PRIORITY)** - Search AAPC directly: https://www.aapc.com/codes/code-search/
-   - This is critical - search by drug name
-   - Look for ICD-10-CM diagnosis codes that match the drug indication
-   - Format: Letter + digits + decimal (e.g., L04AX, H35.3)
-   - Example: Search "Avacincaptad pegol" to find geographic atrophy code
-   - If not found on AAPC, try: "DRUGNAME icd-10-cm code" web search
-   - Return: "value": ["H35.33"] and "confidence": 100 if from official AAPC
-   - Leave empty ONLY if truly not found after searching
+**Fallback Sources for codes NOT found in Wikidata:**
 
-4. **Pregnancy Category (AU)** - Search TGA database: https://www.tga.gov.au/prescribing-medicines-pregnancy-database
-   - Australian categories: A, B1, B2, B3, C, D, X
-   - Return confidence 100 if from official TGA source
+1. **DrugBank** (https://go.drugbank.com/) - Contains DrugBank ID, ATC codes, and indications
+   - Search: "DRUGNAME drugbank"
+   - Extract: DB##### ID, ATC codes, drug indication/use
+   - DrugBank often has ATC codes and multiple identifiers in single record
+   - Confidence 100 if from official DrugBank detailed page
 
-5. **Beers Criteria** - Check American Geriatrics Society Beers Criteria 2023
-   - Default: "Not listed" (most new drugs aren't)
-   - Return confidence 100 if verified from official Beers Criteria list
+2. **WHO ATC Index** (https://www.whocc.no/atc_ddd_index/) - Primary ATC source
+   - Search: "DRUGNAME atc"
+   - Extract: ATC code and full classification description
+   - Confidence 100 if from official WHO ATC index
+
+3. **AAPC ICD-10 Search** (https://www.aapc.com/codes/code-search/) - Diagnosis codes
+   - Search by: drug name OR drug indication/condition
+   - Example: "Avacincaptad pegol" OR "geographic atrophy" → H35.31
+   - Extract: ICD-10-CM codes matching drug indication
+   - Format: Letter + digits + decimal (e.g., H35.3, N40.1)
+   - Confidence 100 if from official AAPC database
+
+4. **TGA Database** (https://www.tga.gov.au/prescribing-medicines-pregnancy-database) - Pregnancy categories
+   - Extract: Australian pregnancy category (A, B1, B2, B3, C, D, X)
+   - Confidence 100 if from official TGA source
+
+5. **Beers Criteria 2023** - Geriatric safety
+   - Check: American Geriatrics Society Beers Criteria list
+   - Default: "Not listed" (most new drugs)
+   - Confidence 100 if verified from official list
 
 ## Output Format
 Return ONLY valid JSON (no other text):
@@ -793,14 +801,13 @@ Return ONLY valid JSON (no other text):
 ```
 
 ## Important Notes
-- Search THOROUGHLY for ICD-10 codes on https://www.aapc.com/codes/code-search/
-- Example: Avacincaptad pegol is for geographic atrophy, so search for that condition code (H35.33)
-- Use drug indication/condition as search term if drug name alone doesn't work
-- ICD-10 codes should ALWAYS be included if searchable
+- ALL codes have EQUAL PRIORITY - search thoroughly for each type
+- If Wikidata found no data, search DrugBank first (often has multiple code types in one place)
+- For ICD-10 codes: use drug indication as search term if drug name alone doesn't work
 - ALWAYS provide a confidence score for each code found
-- Confidence score 100 = Use this code | Score <100 = Review manually
+- Confidence score 100 = ready for import | Score <100 = manual review needed
 - If found on Wikidata, include the Wikidata URI
-- Leave fields empty only if genuinely not found after thorough search"""
+- Leave fields empty ONLY if genuinely not found after thorough search of all sources"""
 
     try:
         client = Anthropic()
