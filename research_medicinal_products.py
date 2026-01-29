@@ -178,10 +178,11 @@ def search_wikidata(drug_name):
     try:
         # SPARQL query - search for any entity with the drug name that has medical identifiers
         # This is a broad search that should catch most drugs
+        # Note: rdfs:label must use lowercase for proper matching
         sparql_query = f"""
         SELECT DISTINCT ?item ?itemLabel ?drugbankId ?atcCode ?icd10Code
         WHERE {{
-          ?item rdfs:label "{drug_name}"@en .
+          ?item rdfs:label "{drug_name.lower()}"@en .
           ?item (wdt:P31|wdt:P279) wd:Q12140 .
           OPTIONAL {{ ?item wdt:P715 ?drugbankId . }}
           OPTIONAL {{ ?item wdt:P273 ?atcCode . }}
