@@ -20,9 +20,7 @@ OUTPUTS_DIR = os.path.join(SCRIPT_DIR, "outputs")
 os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
 TARGET_SEMANTIC_TAG = "medicinal product"
-# Use SNOMED International Browser for Australian extension codes (namespace 1000036)
-# snomed.info/id doesn't support Australian extension codes
-SNOMED_BASE_URL = "https://browser.ihtsdotools.org/?perspective=full&conceptId="
+SNOMED_BASE_URL = "http://snomed.info/id/"
 
 
 def find_change_report():
