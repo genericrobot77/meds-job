@@ -431,9 +431,11 @@ def generate_json_report(products, research_data, snomed_change_report, date_ran
         products_requiring_review += 1
 
         # Build product entry with confidence scores
+        # For Australian SNOMED CT extension codes, use SNOMED International browser with Australian perspective
+        snomed_uri = product.get('SNOMED_uri', f"https://browser.ihtsdotools.org/?perspective=full&conceptId={concept_id}")
         product_entry = {
             "snomed_code": concept_id,
-            "snomed_uri": product.get('SNOMED_uri', f"http://snomed.info/id/{concept_id}"),
+            "snomed_uri": snomed_uri,
             "wikidata_uri": research.get('wikidata_uri') or None,
             "preferred_label": preferred_term,
             "status": status,
@@ -537,10 +539,12 @@ def generate_reference_document(products, research_data, output_path):
             # Get research data if available
             research = research_data.get(concept_id, {}).get('research', {})
 
+            # Generate proper SNOMED URI for Australian extension codes
+            snomed_uri = product.get('SNOMED_uri', f"https://browser.ihtsdotools.org/?perspective=full&conceptId={concept_id}")
             row = {
                 'preferred_term': product['preferred_term'],
                 'concept_ID': concept_id,
-                'SNOMED_uri': product.get('SNOMED_uri', ''),
+                'SNOMED_uri': snomed_uri,
                 'status': product['status'],
                 'drugbank_id': research.get('drugbank_id', ''),
                 'drugbank_id_confidence': research.get('drugbank_id_confidence', 0),
