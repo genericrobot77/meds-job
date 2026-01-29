@@ -630,7 +630,7 @@ def print_research_urls():
     print("  AAPC ICD-10:     https://www.aapc.com/codes/code-search/")
     print("                   For ICD-10-CM diagnosis codes")
     print()
-    print("  TGA Database:    https://www.tga.gov.au/prescribing-medicines-pregnancy-database")
+    print("  TGA Database:    https://www.tga.gov.au/resources/health-professional-information-and-resources/australian-categorisation-system-prescribing-medicines-pregnancy/prescribing-medicines-pregnancy-database")
     print("                   For Australian pregnancy categories (A, B1, B2, B3, C, D, X)")
     print()
     print("  Beers Criteria:  American Geriatrics Society Beers Criteria (2023)")
@@ -777,7 +777,7 @@ For EACH code found, include a confidence score (0-100):
    - Format: Letter + digits + decimal (e.g., H35.3, N40.1)
    - Confidence 100 if from official AAPC database
 
-4. **TGA Database** (https://www.tga.gov.au/prescribing-medicines-pregnancy-database) - Pregnancy categories
+4. **TGA Database** (https://www.tga.gov.au/resources/health-professional-information-and-resources/australian-categorisation-system-prescribing-medicines-pregnancy/prescribing-medicines-pregnancy-database) - Pregnancy categories
    - Extract: Australian pregnancy category (A, B1, B2, B3, C, D, X)
    - Confidence 100 if from official TGA source
 
@@ -995,7 +995,7 @@ Research the following new Australian medicinal products.
    - Format: Letter + 2 digits + decimal + 1-2 digits (e.g., L04AX)
    - May not be available for all drugs
 
-5. **Pregnancy Category** (Optional) - https://www.tga.gov.au/prescribing-medicines-pregnancy-database
+5. **Pregnancy Category** (Optional) - https://www.tga.gov.au/resources/health-professional-information-and-resources/australian-categorisation-system-prescribing-medicines-pregnancy/prescribing-medicines-pregnancy-database
    - TGA Database for Australian categories: A, B1, B2, B3, C, D, X
    - Leave blank if not found
 
@@ -1145,7 +1145,7 @@ Research the following new Australian medicinal products. PRIMARY: Check Wikidat
 - Many new drugs won't have ICD-10 codes yet - leave blank if not found
 
 ### 5. Pregnancy Category (Australian TGA preferred)
-- TGA Database: https://www.tga.gov.au/prescribing-medicines-pregnancy-database
+- TGA Database: https://www.tga.gov.au/resources/health-professional-information-and-resources/australian-categorisation-system-prescribing-medicines-pregnancy/prescribing-medicines-pregnancy-database
 - Australian categories: A, B1, B2, B3, C, D, X
 - If not in TGA, search DrugBank for FDA/other info
 - FDA information is secondary (no letter categories since 2015)
@@ -1294,7 +1294,7 @@ def update_research_interactively(research_data):
 
         # Pregnancy Category AU
         print("\n5. Pregnancy Category (Australian TGA)")
-        print("   PRIMARY: https://www.tga.gov.au/prescribing-medicines-pregnancy-database")
+        print("   PRIMARY: https://www.tga.gov.au/resources/health-professional-information-and-resources/australian-categorisation-system-prescribing-medicines-pregnancy/prescribing-medicines-pregnancy-database")
         print("   FALLBACK: DrugBank or FDA databases")
         print("   Categories: A, B1, B2, B3, C, D, X")
         print("   Note: This field is optional")
