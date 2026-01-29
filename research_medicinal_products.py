@@ -205,25 +205,38 @@ def search_wikidata(drug_name):
 
         if data.get('results', {}).get('bindings'):
             for binding in data['results']['bindings']:
-                # Capture Wikidata URI
-                if 'item' in binding and binding['item'].get('value') and not wikidata_results['wikidata_uri']:
-                    wikidata_results['wikidata_uri'] = binding['item']['value']
+                # Track if this binding has any useful data
+                has_data = False
 
                 if 'drugbankId' in binding and binding['drugbankId'].get('value'):
                     wikidata_results['drugbank_id'] = binding['drugbankId']['value']
                     wikidata_results['drugbank_id_confidence'] = 100  # Exact match from Wikidata
+                    has_data = True
+                    # Only capture URI if we found the primary code (DrugBank ID)
+                    if 'item' in binding and binding['item'].get('value') and not wikidata_results['wikidata_uri']:
+                        wikidata_results['wikidata_uri'] = binding['item']['value']
+
                 if 'atcCode' in binding and binding['atcCode'].get('value'):
                     atc = binding['atcCode']['value']
                     if atc not in wikidata_results['atc_codes']:
                         wikidata_results['atc_codes'].append(atc)
                         if not wikidata_results['atc_codes_confidence']:
                             wikidata_results['atc_codes_confidence'] = 100  # Exact match from Wikidata
+                            has_data = True
+
                 if 'icd10Code' in binding and binding['icd10Code'].get('value'):
-                    icd10 = binding['icd10Code']['value']
+                    icd10 = binding['icd10Code'].get('value')
                     if icd10 not in wikidata_results['icd10_codes']:
                         wikidata_results['icd10_codes'].append(icd10)
                         if not wikidata_results['icd10_codes_confidence']:
                             wikidata_results['icd10_codes_confidence'] = 100  # Exact match from Wikidata
+                            has_data = True
+
+                # Only capture Wikidata URI from bindings that have actual codes
+                # This prevents including URIs from irrelevant Wikidata entities
+                if has_data and 'item' in binding and binding['item'].get('value'):
+                    if not wikidata_results['wikidata_uri']:
+                        wikidata_results['wikidata_uri'] = binding['item']['value']
     except Exception as e:
         # Silently fail - Wikidata search is optional
         # In production, you may want to log these errors for debugging
